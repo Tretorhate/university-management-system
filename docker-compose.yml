@@ -1,0 +1,44 @@
+version: "3"
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: university-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: university_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - university-network
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: university-api
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=university_db
+      - SERVER_PORT=8080
+      - JWT_SECRET=super_secret_key_for_development_only
+    networks:
+      - university-network
+    restart: unless-stopped
+
+networks:
+  university-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
