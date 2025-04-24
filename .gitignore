@@ -1,0 +1,46 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Output of the go build command
+*.out
+
+# Test binary, if you run `go test -c`
+*.test
+
+# Coverage reports
+*.cover
+*.cov
+coverage.out
+
+# Dependency directories (if using vendoring)
+vendor/
+
+# IDE/editor folders
+.vscode/
+.idea/
+*.swp
+*.swo
+*.bak
+
+# Logs
+*.log
+
+# go.sum
+# go.mod
+
+# Environment or configuration files
+.env
+.env.*
+
+# System specific
+.DS_Store
+Thumbs.db
+
+# Docker
+*.tar
+*.img
+docker-compose.override.yml
