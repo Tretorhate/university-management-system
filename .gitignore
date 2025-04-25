@@ -34,7 +34,7 @@ vendor/
 
 # Environment or configuration files
 .env
-.env.*
+
 
 # System specific
 .DS_Store

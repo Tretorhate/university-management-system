@@ -17,7 +17,7 @@ func ErrorHandler() gin.HandlerFunc {
 		if len(c.Errors) > 0 {
 			err := c.Errors.Last().Err
 			
-			// Check if it's an AppError
+			// Check if it's an AppError wow
 			if appErr, ok := errors.IsAppError(err); ok {
 				c.JSON(appErr.Code, gin.H{
 					"error": appErr.Message,

@@ -67,10 +67,10 @@ func (s *TeacherService) Create(req *dto.TeacherCreateDTO) (*dto.TeacherResponse
 		return nil, err
 	}
 
-	// Set the User field for the DTO conversion
+	// Setting the User field for the DTO conversion
 	teacher.User = *user
 	
-	// Use factory to create response DTO
+	// Using factory to create response DTO
 	return s.teacherDTOFactory.CreateFromEntity(teacher), nil
 }
 
