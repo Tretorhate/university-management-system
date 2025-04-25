@@ -4,20 +4,25 @@ import (
 	"github.com/Tretorhate/university-management-system/internal/domain"
 	"github.com/Tretorhate/university-management-system/internal/dto"
 	"github.com/Tretorhate/university-management-system/internal/repository"
+	"github.com/Tretorhate/university-management-system/internal/service/factory"
 	"github.com/Tretorhate/university-management-system/pkg/errors"
 )
 
 type EnrollmentService struct {
-	enrollmentRepo *repository.EnrollmentRepository
-	studentRepo    *repository.StudentRepository
-	courseRepo     *repository.CourseRepository
+	enrollmentRepo           *repository.EnrollmentRepository
+	studentRepo              *repository.StudentRepository
+	courseRepo               *repository.CourseRepository
+	enrollmentFactory        *factory.EnrollmentFactory
+	enrollmentDTOFactory     *factory.EnrollmentResponseDTOFactory
 }
 
 func NewEnrollmentService(enrollmentRepo *repository.EnrollmentRepository, studentRepo *repository.StudentRepository, courseRepo *repository.CourseRepository) *EnrollmentService {
 	return &EnrollmentService{
-		enrollmentRepo: enrollmentRepo,
-		studentRepo:    studentRepo,
-		courseRepo:     courseRepo,
+		enrollmentRepo:       enrollmentRepo,
+		studentRepo:          studentRepo,
+		courseRepo:           courseRepo,
+		enrollmentFactory:    factory.NewEnrollmentFactory(),
+		enrollmentDTOFactory: factory.NewEnrollmentResponseDTOFactory(),
 	}
 }
 
@@ -42,27 +47,18 @@ func (s *EnrollmentService) Create(req *dto.EnrollmentCreateDTO) (*dto.Enrollmen
 		}
 	}
 
-	// Create enrollment
-	enrollment := &domain.Enrollment{
-		StudentID:  req.StudentID,
-		CourseID:   req.CourseID,
-		EnrollDate: req.EnrollDate,
-	}
+	// Create enrollment using factory
+	enrollment := s.enrollmentFactory.CreateFromDTO(req)
 
 	if err := s.enrollmentRepo.Create(enrollment); err != nil {
 		return nil, errors.InternalServerError("Failed to create enrollment", err)
 	}
 
-	return &dto.EnrollmentResponseDTO{
-		ID:          enrollment.ID,
-		StudentID:   enrollment.StudentID,
-		StudentName: student.User.FirstName + " " + student.User.LastName,
-		CourseID:    enrollment.CourseID,
-		CourseName:  course.Name,
-		CourseCode:  course.Code,
-		Grade:       enrollment.Grade,
-		EnrollDate:  enrollment.EnrollDate,
-	}, nil
+	// Set the Student and Course fields for the DTO conversion
+	enrollment.Student = *student
+	enrollment.Course = *course
+	
+	return s.enrollmentDTOFactory.CreateFromEntity(enrollment), nil
 }
 
 func (s *EnrollmentService) GetAll() ([]dto.EnrollmentResponseDTO, error) {
@@ -73,16 +69,7 @@ func (s *EnrollmentService) GetAll() ([]dto.EnrollmentResponseDTO, error) {
 
 	var dtos []dto.EnrollmentResponseDTO
 	for _, enrollment := range enrollments {
-		dtos = append(dtos, dto.EnrollmentResponseDTO{
-			ID:          enrollment.ID,
-			StudentID:   enrollment.StudentID,
-			StudentName: enrollment.Student.User.FirstName + " " + enrollment.Student.User.LastName,
-			CourseID:    enrollment.CourseID,
-			CourseName:  enrollment.Course.Name,
-			CourseCode:  enrollment.Course.Code,
-			Grade:       enrollment.Grade,
-			EnrollDate:  enrollment.EnrollDate,
-		})
+		dtos = append(dtos, *s.enrollmentDTOFactory.CreateFromEntity(&enrollment))
 	}
 
 	return dtos, nil
@@ -94,16 +81,7 @@ func (s *EnrollmentService) GetByID(id uint) (*dto.EnrollmentResponseDTO, error)
 		return nil, errors.NotFound("Enrollment not found", err)
 	}
 
-	return &dto.EnrollmentResponseDTO{
-		ID:          enrollment.ID,
-		StudentID:   enrollment.StudentID,
-		StudentName: enrollment.Student.User.FirstName + " " + enrollment.Student.User.LastName,
-		CourseID:    enrollment.CourseID,
-		CourseName:  enrollment.Course.Name,
-		CourseCode:  enrollment.Course.Code,
-		Grade:       enrollment.Grade,
-		EnrollDate:  enrollment.EnrollDate,
-	}, nil
+	return s.enrollmentDTOFactory.CreateFromEntity(enrollment), nil
 }
 
 func (s *EnrollmentService) Update(id uint, req *dto.EnrollmentUpdateDTO) (*dto.EnrollmentResponseDTO, error) {
@@ -124,16 +102,7 @@ func (s *EnrollmentService) Update(id uint, req *dto.EnrollmentUpdateDTO) (*dto.
 		return nil, errors.InternalServerError("Failed to update enrollment", err)
 	}
 
-	return &dto.EnrollmentResponseDTO{
-		ID:          enrollment.ID,
-		StudentID:   enrollment.StudentID,
-		StudentName: enrollment.Student.User.FirstName + " " + enrollment.Student.User.LastName,
-		CourseID:    enrollment.CourseID,
-		CourseName:  enrollment.Course.Name,
-		CourseCode:  enrollment.Course.Code,
-		Grade:       enrollment.Grade,
-		EnrollDate:  enrollment.EnrollDate,
-	}, nil
+	return s.enrollmentDTOFactory.CreateFromEntity(enrollment), nil
 }
 
 func (s *EnrollmentService) Delete(id uint) error {
@@ -164,16 +133,7 @@ func (s *EnrollmentService) GetByStudentID(studentID uint) ([]dto.EnrollmentResp
 
 	var dtos []dto.EnrollmentResponseDTO
 	for _, enrollment := range enrollments {
-		dtos = append(dtos, dto.EnrollmentResponseDTO{
-			ID:          enrollment.ID,
-			StudentID:   enrollment.StudentID,
-			StudentName: enrollment.Student.User.FirstName + " " + enrollment.Student.User.LastName,
-			CourseID:    enrollment.CourseID,
-			CourseName:  enrollment.Course.Name,
-			CourseCode:  enrollment.Course.Code,
-			Grade:       enrollment.Grade,
-			EnrollDate:  enrollment.EnrollDate,
-		})
+		dtos = append(dtos, *s.enrollmentDTOFactory.CreateFromEntity(&enrollment))
 	}
 
 	return dtos, nil
@@ -193,16 +153,7 @@ func (s *EnrollmentService) GetByCourseID(courseID uint) ([]dto.EnrollmentRespon
 
 	var dtos []dto.EnrollmentResponseDTO
 	for _, enrollment := range enrollments {
-		dtos = append(dtos, dto.EnrollmentResponseDTO{
-			ID:          enrollment.ID,
-			StudentID:   enrollment.StudentID,
-			StudentName: enrollment.Student.User.FirstName + " " + enrollment.Student.User.LastName,
-			CourseID:    enrollment.CourseID,
-			CourseName:  enrollment.Course.Name,
-			CourseCode:  enrollment.Course.Code,
-			Grade:       enrollment.Grade,
-			EnrollDate:  enrollment.EnrollDate,
-		})
+		dtos = append(dtos, *s.enrollmentDTOFactory.CreateFromEntity(&enrollment))
 	}
 
 	return dtos, nil
@@ -237,16 +188,7 @@ func (s *EnrollmentService) GetByStudentAndCourseID(studentID, courseID uint) ([
 
 	var dtos []dto.EnrollmentResponseDTO
 	for _, enrollment := range filtered {
-		dtos = append(dtos, dto.EnrollmentResponseDTO{
-			ID:          enrollment.ID,
-			StudentID:   enrollment.StudentID,
-			StudentName: enrollment.Student.User.FirstName + " " + enrollment.Student.User.LastName,
-			CourseID:    enrollment.CourseID,
-			CourseName:  enrollment.Course.Name,
-			CourseCode:  enrollment.Course.Code,
-			Grade:       enrollment.Grade,
-			EnrollDate:  enrollment.EnrollDate,
-		})
+		dtos = append(dtos, *s.enrollmentDTOFactory.CreateFromEntity(&enrollment))
 	}
 
 	return dtos, nil

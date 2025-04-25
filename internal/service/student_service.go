@@ -6,18 +6,23 @@ import (
 	"github.com/Tretorhate/university-management-system/internal/domain"
 	"github.com/Tretorhate/university-management-system/internal/dto"
 	"github.com/Tretorhate/university-management-system/internal/repository"
+	"github.com/Tretorhate/university-management-system/internal/service/factory"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type StudentService struct {
-	studentRepo *repository.StudentRepository
-	userRepo    *repository.UserRepository
+	studentRepo     *repository.StudentRepository
+	userRepo        *repository.UserRepository
+	studentFactory  *factory.StudentFactory
+	studentDTOFactory *factory.StudentDTOFactory
 }
 
 func NewStudentService(studentRepo *repository.StudentRepository, userRepo *repository.UserRepository) *StudentService {
 	return &StudentService{
-		studentRepo: studentRepo,
-		userRepo:    userRepo,
+		studentRepo:     studentRepo,
+		userRepo:        userRepo,
+		studentFactory:  factory.NewStudentFactory(),
+		studentDTOFactory: factory.NewStudentDTOFactory(),
 	}
 }
 
@@ -53,13 +58,8 @@ func (s *StudentService) Create(req *dto.StudentCreateDTO) (*dto.StudentResponse
 		return nil, err
 	}
 
-	// Create student
-	student := &domain.Student{
-		UserID:     user.ID,
-		StudentID:  req.StudentID,
-		EnrollYear: req.EnrollYear,
-		Major:      req.Major,
-	}
+	// Create student using factory
+	student := s.studentFactory.CreateFromDTO(req, user.ID)
 
 	if err := s.studentRepo.Create(student); err != nil {
 		// Rollback user creation if student creation fails
@@ -67,16 +67,11 @@ func (s *StudentService) Create(req *dto.StudentCreateDTO) (*dto.StudentResponse
 		return nil, err
 	}
 
-	return &dto.StudentResponseDTO{
-		ID:         student.ID,
-		UserID:     user.ID,
-		Email:      user.Email,
-		FirstName:  user.FirstName,
-		LastName:   user.LastName,
-		StudentID:  student.StudentID,
-		EnrollYear: student.EnrollYear,
-		Major:      student.Major,
-	}, nil
+	// Set the User field for the DTO conversion
+	student.User = *user
+	
+	// Use factory to create response DTO
+	return s.studentDTOFactory.CreateFromEntity(student), nil
 }
 
 func (s *StudentService) GetAll() ([]dto.StudentResponseDTO, error) {
@@ -87,16 +82,7 @@ func (s *StudentService) GetAll() ([]dto.StudentResponseDTO, error) {
 
 	var dtos []dto.StudentResponseDTO
 	for _, student := range students {
-		dtos = append(dtos, dto.StudentResponseDTO{
-			ID:         student.ID,
-			UserID:     student.UserID,
-			Email:      student.User.Email,
-			FirstName:  student.User.FirstName,
-			LastName:   student.User.LastName,
-			StudentID:  student.StudentID,
-			EnrollYear: student.EnrollYear,
-			Major:      student.Major,
-		})
+		dtos = append(dtos, *s.studentDTOFactory.CreateFromEntity(&student))
 	}
 
 	return dtos, nil
@@ -108,16 +94,7 @@ func (s *StudentService) GetByID(id uint) (*dto.StudentResponseDTO, error) {
 		return nil, err
 	}
 
-	return &dto.StudentResponseDTO{
-		ID:         student.ID,
-		UserID:     student.UserID,
-		Email:      student.User.Email,
-		FirstName:  student.User.FirstName,
-		LastName:   student.User.LastName,
-		StudentID:  student.StudentID,
-		EnrollYear: student.EnrollYear,
-		Major:      student.Major,
-	}, nil
+	return s.studentDTOFactory.CreateFromEntity(student), nil
 }
 
 func (s *StudentService) Update(id uint, req *dto.StudentUpdateDTO) (*dto.StudentResponseDTO, error) {
@@ -153,16 +130,10 @@ func (s *StudentService) Update(id uint, req *dto.StudentUpdateDTO) (*dto.Studen
 		return nil, err
 	}
 
-	return &dto.StudentResponseDTO{
-		ID:         student.ID,
-		UserID:     user.ID,
-		Email:      user.Email,
-		FirstName:  user.FirstName,
-		LastName:   user.LastName,
-		StudentID:  student.StudentID,
-		EnrollYear: student.EnrollYear,
-		Major:      student.Major,
-	}, nil
+	// Update the User field for the DTO conversion
+	student.User = *user
+	
+	return s.studentDTOFactory.CreateFromEntity(student), nil
 }
 
 func (s *StudentService) Delete(id uint) error {

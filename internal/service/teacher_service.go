@@ -6,18 +6,23 @@ import (
 	"github.com/Tretorhate/university-management-system/internal/domain"
 	"github.com/Tretorhate/university-management-system/internal/dto"
 	"github.com/Tretorhate/university-management-system/internal/repository"
+	"github.com/Tretorhate/university-management-system/internal/service/factory"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type TeacherService struct {
-	teacherRepo *repository.TeacherRepository
-	userRepo    *repository.UserRepository
+	teacherRepo      *repository.TeacherRepository
+	userRepo         *repository.UserRepository
+	teacherFactory   *factory.TeacherFactory
+	teacherDTOFactory *factory.TeacherDTOFactory
 }
 
 func NewTeacherService(teacherRepo *repository.TeacherRepository, userRepo *repository.UserRepository) *TeacherService {
 	return &TeacherService{
-		teacherRepo: teacherRepo,
-		userRepo:    userRepo,
+		teacherRepo:      teacherRepo,
+		userRepo:         userRepo,
+		teacherFactory:   factory.NewTeacherFactory(),
+		teacherDTOFactory: factory.NewTeacherDTOFactory(),
 	}
 }
 
@@ -53,14 +58,8 @@ func (s *TeacherService) Create(req *dto.TeacherCreateDTO) (*dto.TeacherResponse
 		return nil, err
 	}
 
-	// Create teacher
-	teacher := &domain.Teacher{
-		UserID:      user.ID,
-		EmployeeID:  req.EmployeeID,
-		Department:  req.Department,
-		Speciality:  req.Speciality,
-		JoiningDate: req.JoiningDate,
-	}
+	// Create teacher using factory
+	teacher := s.teacherFactory.CreateFromDTO(req, user.ID)
 
 	if err := s.teacherRepo.Create(teacher); err != nil {
 		// Rollback user creation if teacher creation fails
@@ -68,17 +67,11 @@ func (s *TeacherService) Create(req *dto.TeacherCreateDTO) (*dto.TeacherResponse
 		return nil, err
 	}
 
-	return &dto.TeacherResponseDTO{
-		ID:          teacher.ID,
-		UserID:      user.ID,
-		Email:       user.Email,
-		FirstName:   user.FirstName,
-		LastName:    user.LastName,
-		EmployeeID:  teacher.EmployeeID,
-		Department:  teacher.Department,
-		Speciality:  teacher.Speciality,
-		JoiningDate: teacher.JoiningDate,
-	}, nil
+	// Set the User field for the DTO conversion
+	teacher.User = *user
+	
+	// Use factory to create response DTO
+	return s.teacherDTOFactory.CreateFromEntity(teacher), nil
 }
 
 func (s *TeacherService) GetAll() ([]dto.TeacherResponseDTO, error) {
@@ -89,17 +82,7 @@ func (s *TeacherService) GetAll() ([]dto.TeacherResponseDTO, error) {
 
 	var dtos []dto.TeacherResponseDTO
 	for _, teacher := range teachers {
-		dtos = append(dtos, dto.TeacherResponseDTO{
-			ID:          teacher.ID,
-			UserID:      teacher.UserID,
-			Email:       teacher.User.Email,
-			FirstName:   teacher.User.FirstName,
-			LastName:    teacher.User.LastName,
-			EmployeeID:  teacher.EmployeeID,
-			Department:  teacher.Department,
-			Speciality:  teacher.Speciality,
-			JoiningDate: teacher.JoiningDate,
-		})
+		dtos = append(dtos, *s.teacherDTOFactory.CreateFromEntity(&teacher))
 	}
 
 	return dtos, nil
@@ -111,17 +94,7 @@ func (s *TeacherService) GetByID(id uint) (*dto.TeacherResponseDTO, error) {
 		return nil, err
 	}
 
-	return &dto.TeacherResponseDTO{
-		ID:          teacher.ID,
-		UserID:      teacher.UserID,
-		Email:       teacher.User.Email,
-		FirstName:   teacher.User.FirstName,
-		LastName:    teacher.User.LastName,
-		EmployeeID:  teacher.EmployeeID,
-		Department:  teacher.Department,
-		Speciality:  teacher.Speciality,
-		JoiningDate: teacher.JoiningDate,
-	}, nil
+	return s.teacherDTOFactory.CreateFromEntity(teacher), nil
 }
 
 func (s *TeacherService) Update(id uint, req *dto.TeacherUpdateDTO) (*dto.TeacherResponseDTO, error) {
@@ -160,17 +133,10 @@ func (s *TeacherService) Update(id uint, req *dto.TeacherUpdateDTO) (*dto.Teache
 		return nil, err
 	}
 
-	return &dto.TeacherResponseDTO{
-		ID:          teacher.ID,
-		UserID:      user.ID,
-		Email:       user.Email,
-		FirstName:   user.FirstName,
-		LastName:    user.LastName,
-		EmployeeID:  teacher.EmployeeID,
-		Department:  teacher.Department,
-		Speciality:  teacher.Speciality,
-		JoiningDate: teacher.JoiningDate,
-	}, nil
+	// Update the User field for the DTO conversion
+	teacher.User = *user
+	
+	return s.teacherDTOFactory.CreateFromEntity(teacher), nil
 }
 
 func (s *TeacherService) Delete(id uint) error {

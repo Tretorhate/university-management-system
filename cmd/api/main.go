@@ -9,14 +9,13 @@ import (
 	"github.com/Tretorhate/university-management-system/internal/api/middleware"
 	"github.com/Tretorhate/university-management-system/internal/api/routes"
 	"github.com/Tretorhate/university-management-system/internal/config"
-	"github.com/Tretorhate/university-management-system/internal/domain"
 	"github.com/Tretorhate/university-management-system/internal/repository"
 	"github.com/Tretorhate/university-management-system/internal/service"
 	"github.com/Tretorhate/university-management-system/pkg/auth"
 	"github.com/Tretorhate/university-management-system/pkg/validator"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
-	goValidator "github.com/go-playground/validator/v10" // Use alias to avoid conflict
+	goValidator "github.com/go-playground/validator/v10"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -34,26 +33,27 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Auto migrate schema
-	err = db.AutoMigrate(
-		&domain.User{},
-		&domain.Student{},
-		&domain.Teacher{},
-		&domain.Course{},
-		&domain.Enrollment{},
-	)
-	if err != nil {
-		log.Fatalf("Failed to migrate database: %v", err)
-	}
+	// Note: AutoMigrate is disabled as schema is managed by golang-migrate
+	// If you need to verify the schema matches your models, you can add a check here
+	// For example, ensure tables exist, but do not modify the schema
 
 	// Register custom validations with Gin's validator
 	if v, ok := binding.Validator.Engine().(*goValidator.Validate); ok {
-		// Register custom validations
-		_ = v.RegisterValidation("password", validator.ValidatePassword)
-		_ = v.RegisterValidation("student_id", validator.ValidateStudentID)
-		_ = v.RegisterValidation("employee_id", validator.ValidateEmployeeID)
-		_ = v.RegisterValidation("course_code", validator.ValidateCourseCode)
-		_ = v.RegisterValidation("date_range", validator.ValidateDateRange)
+		if err := v.RegisterValidation("password", validator.ValidatePassword); err != nil {
+			log.Fatalf("Failed to register password validation: %v", err)
+		}
+		if err := v.RegisterValidation("student_id", validator.ValidateStudentID); err != nil {
+			log.Fatalf("Failed to register student_id validation: %v", err)
+		}
+		if err := v.RegisterValidation("employee_id", validator.ValidateEmployeeID); err != nil {
+			log.Fatalf("Failed to register employee_id validation: %v", err)
+		}
+		if err := v.RegisterValidation("course_code", validator.ValidateCourseCode); err != nil {
+			log.Fatalf("Failed to register course_code validation: %v", err)
+		}
+		if err := v.RegisterValidation("date_range", validator.ValidateDateRange); err != nil {
+			log.Fatalf("Failed to register date_range validation: %v", err)
+		}
 	}
 
 	// Initialize repositories
@@ -82,9 +82,6 @@ func main() {
 	studentController := controllers.NewStudentController(studentService)
 	teacherController := controllers.NewTeacherController(teacherService)
 	courseController := controllers.NewCourseController(courseService)
-
-	// Check if the enrollment controller constructor exists
-	// You'll need to implement this controller
 	enrollmentController := controllers.NewEnrollmentController(enrollmentService)
 
 	// Setup gin router

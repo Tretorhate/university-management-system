@@ -1,4 +1,3 @@
-// internal/service/course_service.go
 package service
 
 import (
@@ -7,19 +6,24 @@ import (
 	"github.com/Tretorhate/university-management-system/internal/domain"
 	"github.com/Tretorhate/university-management-system/internal/dto"
 	"github.com/Tretorhate/university-management-system/internal/repository"
+	"github.com/Tretorhate/university-management-system/internal/service/factory"
 	"github.com/Tretorhate/university-management-system/internal/service/strategy"
 )
 
 type CourseService struct {
-	courseRepo  *repository.CourseRepository
-	teacherRepo *repository.TeacherRepository
-	enrollRepo  *repository.EnrollmentRepository
+	courseRepo           *repository.CourseRepository
+	teacherRepo          *repository.TeacherRepository
+	enrollRepo           *repository.EnrollmentRepository
+	courseFactory        *factory.CourseFactory
+	courseDTOFactory     *factory.CourseResponseDTOFactory
 }
 
 func NewCourseService(courseRepo *repository.CourseRepository, teacherRepo *repository.TeacherRepository) *CourseService {
 	return &CourseService{
-		courseRepo:  courseRepo,
-		teacherRepo: teacherRepo,
+		courseRepo:       courseRepo,
+		teacherRepo:      teacherRepo,
+		courseFactory:    factory.NewCourseFactory(),
+		courseDTOFactory: factory.NewCourseResponseDTOFactory(),
 	}
 }
 
@@ -36,32 +40,17 @@ func (s *CourseService) Create(req *dto.CourseCreateDTO) (*dto.CourseResponseDTO
 		return nil, errors.New("teacher not found")
 	}
 
-	// Create course
-	course := &domain.Course{
-		Code:        req.Code,
-		Name:        req.Name,
-		Description: req.Description,
-		Credits:     req.Credits,
-		TeacherID:   req.TeacherID,
-		StartDate:   req.StartDate,
-		EndDate:     req.EndDate,
-	}
+	// Create course using factory
+	course := s.courseFactory.CreateFromDTO(req)
 
 	if err := s.courseRepo.Create(course); err != nil {
 		return nil, err
 	}
 
-	return &dto.CourseResponseDTO{
-		ID:          course.ID,
-		Code:        course.Code,
-		Name:        course.Name,
-		Description: course.Description,
-		Credits:     course.Credits,
-		TeacherID:   course.TeacherID,
-		TeacherName: teacher.User.FirstName + " " + teacher.User.LastName,
-		StartDate:   course.StartDate,
-		EndDate:     course.EndDate,
-	}, nil
+	// Set the Teacher field for the DTO conversion
+	course.Teacher = *teacher
+	
+	return s.courseDTOFactory.CreateFromEntity(course), nil
 }
 
 func (s *CourseService) GetAll(sortBy string) ([]dto.CourseResponseDTO, error) {
@@ -75,12 +64,10 @@ func (s *CourseService) GetAll(sortBy string) ([]dto.CourseResponseDTO, error) {
 	switch sortBy {
 	case "date":
 		strategy := &strategy.CourseByDateStrategy{}
-		sorter := strategy.Sort(courses)
-		sortedCourses = sorter
+		sortedCourses = strategy.Sort(courses)
 	case "name":
 		strategy := &strategy.CourseByNameStrategy{}
-		sorter := strategy.Sort(courses)
-		sortedCourses = sorter
+		sortedCourses = strategy.Sort(courses)
 	case "students":
 		// Get enrollment counts for each course
 		enrollmentCounts := make(map[uint]int)
@@ -89,25 +76,14 @@ func (s *CourseService) GetAll(sortBy string) ([]dto.CourseResponseDTO, error) {
 			enrollmentCounts[course.ID] = count
 		}
 		strategy := strategy.NewCourseByStudentCountStrategy(enrollmentCounts)
-		sorter := strategy.Sort(courses)
-		sortedCourses = sorter
+		sortedCourses = strategy.Sort(courses)
 	default:
 		sortedCourses = courses
 	}
 
 	var dtos []dto.CourseResponseDTO
 	for _, course := range sortedCourses {
-		dtos = append(dtos, dto.CourseResponseDTO{
-			ID:          course.ID,
-			Code:        course.Code,
-			Name:        course.Name,
-			Description: course.Description,
-			Credits:     course.Credits,
-			TeacherID:   course.TeacherID,
-			TeacherName: course.Teacher.User.FirstName + " " + course.Teacher.User.LastName,
-			StartDate:   course.StartDate,
-			EndDate:     course.EndDate,
-		})
+		dtos = append(dtos, *s.courseDTOFactory.CreateFromEntity(&course))
 	}
 
 	return dtos, nil
@@ -119,17 +95,7 @@ func (s *CourseService) GetByID(id uint) (*dto.CourseResponseDTO, error) {
 		return nil, err
 	}
 
-	return &dto.CourseResponseDTO{
-		ID:          course.ID,
-		Code:        course.Code,
-		Name:        course.Name,
-		Description: course.Description,
-		Credits:     course.Credits,
-		TeacherID:   course.TeacherID,
-		TeacherName: course.Teacher.User.FirstName + " " + course.Teacher.User.LastName,
-		StartDate:   course.StartDate,
-		EndDate:     course.EndDate,
-	}, nil
+	return s.courseDTOFactory.CreateFromEntity(course), nil
 }
 
 func (s *CourseService) Update(id uint, req *dto.CourseUpdateDTO) (*dto.CourseResponseDTO, error) {
@@ -168,17 +134,7 @@ func (s *CourseService) Update(id uint, req *dto.CourseUpdateDTO) (*dto.CourseRe
 		return nil, err
 	}
 
-	return &dto.CourseResponseDTO{
-		ID:          course.ID,
-		Code:        course.Code,
-		Name:        course.Name,
-		Description: course.Description,
-		Credits:     course.Credits,
-		TeacherID:   course.TeacherID,
-		TeacherName: course.Teacher.User.FirstName + " " + course.Teacher.User.LastName,
-		StartDate:   course.StartDate,
-		EndDate:     course.EndDate,
-	}, nil
+	return s.courseDTOFactory.CreateFromEntity(course), nil
 }
 
 func (s *CourseService) Delete(id uint) error {

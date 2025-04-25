@@ -4,20 +4,23 @@ import (
 	"github.com/Tretorhate/university-management-system/internal/domain"
 	"github.com/Tretorhate/university-management-system/internal/dto"
 	"github.com/Tretorhate/university-management-system/internal/repository"
+	"github.com/Tretorhate/university-management-system/internal/service/factory"
 	"github.com/Tretorhate/university-management-system/pkg/auth"
 	"github.com/Tretorhate/university-management-system/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthService struct {
-	userRepo   *repository.UserRepository
-	jwtService *auth.JWTService
+	userRepo     *repository.UserRepository
+	jwtService   *auth.JWTService
+	userDTOFactory *factory.UserDTOFactory
 }
 
 func NewAuthService(userRepo *repository.UserRepository, jwtService *auth.JWTService) *AuthService {
 	return &AuthService{
-		userRepo:   userRepo,
-		jwtService: jwtService,
+		userRepo:     userRepo,
+		jwtService:   jwtService,
+		userDTOFactory: factory.NewUserDTOFactory(),
 	}
 }
 
@@ -53,15 +56,12 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.AuthResponse, err
 		return nil, errors.InternalServerError("Failed to generate token", err)
 	}
 
+	// Use factory to create user DTO
+	userDTO := s.userDTOFactory.CreateFromEntity(user)
+
 	return &dto.AuthResponse{
 		Token: token,
-		User: dto.UserDTO{
-			ID:        user.ID,
-			Email:     user.Email,
-			FirstName: user.FirstName,
-			LastName:  user.LastName,
-			Role:      string(user.Role),
-		},
+		User:  *userDTO,
 	}, nil
 }
 
@@ -84,14 +84,11 @@ func (s *AuthService) Login(req *dto.LoginRequest) (*dto.AuthResponse, error) {
 		return nil, errors.InternalServerError("Failed to generate token", err)
 	}
 
+	// Use factory to create user DTO
+	userDTO := s.userDTOFactory.CreateFromEntity(user)
+
 	return &dto.AuthResponse{
 		Token: token,
-		User: dto.UserDTO{
-			ID:        user.ID,
-			Email:     user.Email,
-			FirstName: user.FirstName,
-			LastName:  user.LastName,
-			Role:      string(user.Role),
-		},
+		User:  *userDTO,
 	}, nil
 }
